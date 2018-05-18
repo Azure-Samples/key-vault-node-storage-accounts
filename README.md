@@ -8,17 +8,6 @@ author: lusitanian
 
 This sample repo includes sample code demonstrating common mechanisms for managing storage account keys using Key Vault.
 
-## Samples in this repo
-* storage_account_sample.js
-  * addStorageAccount -- Creates a storage account then adds the storage account to the vault to manage its keys.
-  * updateStorageAccount -- Updates a storage account in the vault.
-  * regenerateStorageAccountKey -- Regenerates a key of a storage account managed by the vault.
-  * getStorageAccounts -- Lists the storage accounts in the vault, and gets each.
-  * deleteStorageAccount -- Deletes a storage account from a vault.
-  * createAccountSasDefinition -- Creates an account SAS definition, to manage storage account and its entities.
-  * createBlobSasDefinition -- Creates a service SAS definition with access to a blob container.
-  * getSasDefinitions -- List the SAS definitions for the storage account, and get each.
-
 ## How to run this sample
 
 1. If you don't already have it, get [node.js](https://nodejs.org).
@@ -61,6 +50,21 @@ This sample repo includes sample code demonstrating common mechanisms for managi
     ```
     node storage_account_sample.js
     ```
+
+## What this sample does
+The storage account sample is broken down into 8 different methods, as described  below. 
+* storage_account_sample.js
+  * addStorageAccount -- Creates a storage account then adds the storage account to the vault to manage its keys.
+  * updateStorageAccount -- Updates a storage account in the vault.
+  * regenerateStorageAccountKey -- Regenerates a key of a storage account managed by the vault.
+  * getStorageAccounts -- Lists the storage accounts in the vault, and gets each.
+  * deleteStorageAccount -- Deletes a storage account from a vault.
+  * createAccountSasDefinition -- Creates an account SAS definition, to manage storage account and its entities.
+  * createBlobSasDefinition -- Creates a service SAS definition with access to a blob container.
+  * getSasDefinitions -- List the SAS definitions for the storage account, and get each.
+
+By default, these methods are called in sequence by the `main()` method in `storage_account_sample.js` - this is the place to start experimenting and making any changes that might be necessary. 
+`sample_util.js` contains boilerplate code for sample configuration, authentication, and creation of a sample vault. 
 
 ## References and further reading
 

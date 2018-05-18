@@ -66,15 +66,13 @@ async function addStorageAccount(vault) {
     const kvManagementClient = new KeyVaultManagementClient(await SampleUtil.getManagementCredentials(), SampleUtil.config.subscriptionId);
     const userToken = await SampleUtil.getTokenFromUserCreds(userCreds);
     
-    // An access policy entry allowing the user access to all permissions on the vault
+    // An access policy entry allowing the user access to all storage/secret permissions on the vault
     const accessPolicyEntry = {
         tenantId: SampleUtil.config.tenantId,
         objectId: userToken.oid,
         permissions: {
-            secrets: ['all'],
-            storage: ['all'],
-            keys: ['all'],
-            certificates: ['all']
+            secrets: ['get', 'list', 'set', 'delete', 'backup', 'restore', 'recover', 'purge'],
+            storage: ['get', 'list', 'delete', 'set', 'update', 'regeneratekey', 'recover', 'purge', 'backup', 'restore', 'setsas', 'listsas', 'getsas', 'deletesas']
         }
     };
     vault.properties.accessPolicies.push(accessPolicyEntry);
@@ -115,7 +113,7 @@ async function updateStorageAccount(storageAccount, vault) {
 }
 
 async function regenerateStorageAccountKey(storageAccount, vault) {
-    // As in add storage account, we must use a user authenticated to AKV, rather than a service principal, to call the regenerate storage account key method
+    // As in addStorageAccount, we must use a user authenticated to AKV, rather than a service principal, to call the regenerate storage account key method
     console.log("Regenerating storage account key1");
     await SampleUtil.getKeyVaultUserClient().regenerateStorageAccountKey(vault.properties.vaultUri, storageAccount.name, 'key1');
 }
@@ -180,7 +178,7 @@ async function createAccountSASDefinition(storageAccount, vault) {
 
 async function createBlobSASDefinition(storageAccount, vault) {
     const kvClient = SampleUtil.getKeyVaultSpClient();
-    const tmpBlobService = AzureStorage.createBlobService(storageAccount.name, '00000000');
+    const tmpBlobService = AzureStorage.createBlobService(storageAccount.name, '00000000'); // Instead of providing the actual key, just use '00000000' as a placeholder
     
     const token = tmpBlobService.generateSharedAccessSignature('sample-container', null, {
         AccessPolicy: {

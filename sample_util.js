@@ -176,10 +176,8 @@ async function _getSampleVault() {
                     tenantId: config.tenantId,
                     objectId: config.objectId,
                     permissions: {
-                        secrets: ['all'],
-                        storage: ['all'],
-                        keys: ['all'],
-                        certificates: ['all']
+                        secrets: ['get', 'list', 'set', 'delete', 'backup', 'restore', 'recover', 'purge'],
+                        storage: ['get', 'list', 'delete', 'set', 'update', 'regeneratekey', 'recover', 'purge', 'backup', 'restore', 'setsas', 'listsas', 'getsas', 'deletesas']
                     }
                 }
             ],
