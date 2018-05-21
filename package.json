@@ -1,0 +1,42 @@
+{
+  "name": "key-vault-node-storage-accounts",
+  "version": "0.1.0",
+  "description": "A sample demonstrating managed storage account keys with Key Vault",
+  "main": "storage_account_sample.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "node",
+    "azure"
+  ],
+  "tags": [
+    "azure",
+    "sdk"
+  ],
+  "author": "Microsoft Corporation",
+  "contributors": [
+    "Desberg, David <david.desberg@microsoft.com>"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "adal-node": "^0.1.28",
+    "azure-arm-authorization": "^5.0.0",
+    "azure-arm-keyvault": "^1.1.2-preview",
+    "azure-arm-resource": "^3.1.0-preview",
+    "azure-arm-storage": "^3.2.0",
+    "azure-keyvault": "^3.0.4-preview",
+    "azure-storage": "^2.8.2",
+    "npm": "^5.10.0",
+    "request-promise-native": "^1.0.5",
+    "uuid": "^3.2.1"
+  },
+  "homepage": "https://github.com/Azure-Samples/key-vault-node-network-acl",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Azure-Samples/key-vault-node-network-acl"
+  },
+  "bugs": {
+    "url": "https://github.com/Azure-Samples/key-vault-node-network-acl/issues"
+  }
+}
