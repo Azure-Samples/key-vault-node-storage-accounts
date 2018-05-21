@@ -8,32 +8,17 @@ author: lusitanian
 
 This sample repo includes sample code demonstrating common mechanisms for managing storage account keys using Key Vault.
 
-## How to run this sample
+## Prerequisites
+ * node.js 8+
+ * An Azure Service Principal for running the sample on your Azure account. You can create an Azure service principal using one of the following guides:
+     - [Azure CLI](https://azure.microsoft.com/documentation/articles/resource-group-authenticate-service-principal-cli/),
+     - [PowerShell](https://azure.microsoft.com/documentation/articles/resource-group-authenticate-service-principal/)
+     - [Azure Portal](https://azure.microsoft.com/documentation/articles/resource-group-create-service-principal-portal/). 
 
-1. If you don't already have it, get [node.js](https://nodejs.org).
-
-2. Clone the repo.
-
-   ```
-   git clone https://github.com/Azure-Samples/key-vault-node-storage-accounts.git key-vault
-   ```
-
-3. Install the dependencies.
-
-   ```
-   cd key-vault
-   npm install
-   ```
-
-4. Create an Azure service principal, using one of the following:
-   - [Azure CLI](https://azure.microsoft.com/documentation/articles/resource-group-authenticate-service-principal-cli/),
-   - [PowerShell](https://azure.microsoft.com/documentation/articles/resource-group-authenticate-service-principal/)
-   - [Azure Portal](https://azure.microsoft.com/documentation/articles/resource-group-create-service-principal-portal/). 
-
-    This service principal is to run the sample on your Azure account.
-
-5. Set the following environment variables using the information from the service principal that you created.
-
+   
+## Quickstart
+1. If you don't have it, install [node.js](https://nodejs.org)
+2. Set the following environment variables using the information from your service principal.
    ```
    export AZURE_SUBSCRIPTION_ID={your subscription id}
    export AZURE_CLIENT_ID={your client id}
@@ -41,31 +26,53 @@ This sample repo includes sample code demonstrating common mechanisms for managi
    export AZURE_TENANT_ID={your tenant id as a GUID}
    export AZURE_CLIENT_OID={Object id of the service principal}
    ```
+   > On Windows, use `set` instead of `export`.
 
-> On Windows, use `set` instead of `export`.
+3. Clone the repo, install node packages, and run.
+     ```
+     git clone https://github.com/Azure-Samples/key-vault-node-storage-accounts.git key-vault
+     cd key-vault
+     npm install
+     node storage_account_sample.js
+     ```
+    
 ##Note## Certain portions of this sample require authenticated user to execute.  For this reason the sample will prompt the user to authenticate with a device code.  For more details see in-line comments in storage_acount_sample.js
 
-6. Run the sample.
 
-    ```
-    node storage_account_sample.js
-    ```
-
-## What this sample does
-The storage account sample is broken down into 8 different methods, as described  below. 
-* storage_account_sample.js
-  * addStorageAccount -- Creates a storage account then adds the storage account to the vault to manage its keys.
-  * updateStorageAccount -- Updates a storage account in the vault.
-  * regenerateStorageAccountKey -- Regenerates a key of a storage account managed by the vault.
-  * getStorageAccounts -- Lists the storage accounts in the vault, and gets each.
-  * deleteStorageAccount -- Deletes a storage account from a vault.
-  * createAccountSasDefinition -- Creates an account SAS definition, to manage storage account and its entities.
-  * createBlobSasDefinition -- Creates a service SAS definition with access to a blob container.
-  * getSasDefinitions -- List the SAS definitions for the storage account, and get each.
-
-By default, these methods are called in sequence by the `main()` method in `storage_account_sample.js` - this is the place to start experimenting and making any changes that might be necessary. 
-`sample_util.js` contains boilerplate code for sample configuration, authentication, and creation of a sample vault. 
-
+## What does this sample do?
+The storage account sample is broken down into 8 different methods called in sequence by the `main()` method in `storage_account_sample.js`: 
+  ```
+  async function main() {
+    console.log('Azure Key Vault - Managed Storage Account Key Sample');
+    
+    // Get or create our sample vault
+    const vault = await SampleUtil.getSampleVault();
+    
+    // Create and add a storage account to our sample vault
+    const storageAccount = await addStorageAccount(vault);
+    
+    // Demonstrate updating properties of the managed storage account
+    await updateStorageAccount(storageAccount, vault);
+    
+    // Demonstrate regeneration of a storage account key
+    await regenerateStorageAccountKey(storageAccount, vault);
+    
+    // Demonstrate listing off the storage accounts in the vault
+    await getStorageAccounts(vault);
+    
+    // Demonstrate the creation of an account-level SAS definition 
+    await createAccountSASDefinition(storageAccount, vault);
+    
+    // Demonstrate the creation of a container-level SAS definition
+    await createBlobSASDefinition(storageAccount, vault);
+    
+    // List all SAS definitions in the account
+    await getSASDefinitions(storageAccount, vault);
+    
+    // Finally, remove the storage account from the vault
+    await deleteStorageAccount(vault, storageAccount);
+  }
+  ```
 ## References and further reading
 
 - [Azure SDK for Node.js](https://github.com/Azure/azure-sdk-for-node)
