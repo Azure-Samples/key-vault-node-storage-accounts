@@ -36,7 +36,8 @@ This sample repo includes sample code demonstrating common mechanisms for managi
      node storage_account_sample.js
      ```
     
-##Note## Certain portions of this sample require authenticated user to execute.  For this reason the sample will prompt the user to authenticate with a device code.  For more details see in-line comments in storage_acount_sample.js
+### Note ###
+Certain portions of this sample require authenticated user to execute.  For this reason the sample will prompt the user to authenticate with a device code.  For more details see in-line comments in storage_acount_sample.js
 
 
 ## What does this sample do?
