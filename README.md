@@ -1,7 +1,11 @@
 ---
-services: key-vault
-platforms: nodejs
-author: lusitanian
+page_type: sample
+languages:
+- javascript
+products:
+- azure
+description: "This sample repo includes sample code demonstrating common mechanisms for managing storage account keys using Key Vault."
+urlFragment: key-vault-node-storage-accounts
 ---
 
 # Managed Azure Storage Account Keys for Azure Key Vault using the Azure Node SDK
