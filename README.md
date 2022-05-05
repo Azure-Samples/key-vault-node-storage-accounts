@@ -62,17 +62,8 @@ The storage account sample is broken down into 8 different methods called in seq
     // Demonstrate regeneration of a storage account key
     await regenerateStorageAccountKey(storageAccount, vault);
     
-    // Demonstrate listing off the storage accounts in the vault
-    await getStorageAccounts(vault);
-    
     // Demonstrate the creation of an account-level SAS definition 
     await createAccountSASDefinition(storageAccount, vault);
-    
-    // Demonstrate the creation of a container-level SAS definition
-    await createBlobSASDefinition(storageAccount, vault);
-    
-    // List all SAS definitions in the account
-    await getSASDefinitions(storageAccount, vault);
     
     // Finally, remove the storage account from the vault
     await deleteStorageAccount(vault, storageAccount);
