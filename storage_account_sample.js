@@ -97,6 +97,8 @@ async function addStorageAccount(vault) {
 
 }
 async function updateStorageAccount(storageAccount, vault) {
+
+    // create a new key in keyvault and update storage customer-managed keys 
     const keysClient = new KeyClient(vault.properties.vaultUri,credential);
 
     await keysClient.createKey("key2",'RSA');
@@ -148,7 +150,7 @@ async function createAccountSASDefinition(storageAccount) {
 
 }
 async function deleteStorageAccount(storageAccount) {
-    
+
     await storageMgmtClient.storageAccounts.update(SampleUtil.config.groupName,storageAccount.name,{
         encryption:{
             keySource:"Microsoft.Storage",
