@@ -34,7 +34,6 @@ async function addStorageAccount(vault) {
         
     };
     
-    
     const storageAccount = await storageMgmtClient.storageAccounts.beginCreateAndWait(SampleUtil.config.groupName, SampleUtil.config.storageAccName, createParams);
 
     // Find the ID for the "Storage Account Key Operator Service Role" role
@@ -74,9 +73,11 @@ async function addStorageAccount(vault) {
     await kvManagementClient.vaults.beginCreateOrUpdateAndWait(SampleUtil.config.groupName, vault.name, vault);
     
     console.log("Granted user access to vault.");
-
+    // create a key
     const keysClient = new KeyClient(vault.properties.vaultUri,credential);
     await keysClient.createKey("key1",'RSA');
+
+    // update storage client to use Customer-managed keys
     await storageMgmtClient.storageAccounts.update(SampleUtil.config.groupName,storageAccount.name,{
         encryption:{
             keySource:"Microsoft.Keyvault",
@@ -129,7 +130,8 @@ async function createAccountSASDefinition(storageAccount) {
         resourceTypes: 'sco', // All resource types (service, template, object)
         permissions: 'acdlpruw', // All permissions: add, create, list, process, read, update, write
     };
-
+    
+    // get storage account sasToken
     const sasToken = await storageMgmtClient.storageAccounts.listAccountSAS(SampleUtil.config.groupName, storageAccount.name, policy);
     const blobServiceClient = new BlobServiceClient(`https://${storageAccount.name}.blob.core.windows.net?${sasToken.accountSasToken}`);
     
@@ -146,6 +148,7 @@ async function createAccountSASDefinition(storageAccount) {
 
 }
 async function deleteStorageAccount(storageAccount) {
+    
     await storageMgmtClient.storageAccounts.update(SampleUtil.config.groupName,storageAccount.name,{
         encryption:{
             keySource:"Microsoft.Storage",
