@@ -10,7 +10,7 @@ const { KeyVaultManagementClient } = require('@azure/arm-keyvault');
 const { ResourceManagementClient } = require('@azure/arm-resources');
 const random_id = require('./random_id');
 const adal = require('adal-node');
-const { ClientSecretCredential } = require('@azure/identity');
+const { DefaultAzureCredential } = require('@azure/identity');
 // const request = require('request-promise-native');
 
 // Validate env variables
@@ -45,7 +45,7 @@ if(process.env['AZURE_SAMPLE_VAULT_NAME']) {
 
 function _getManagementCredentials() {
     // Return service principal credentials based on our config.
-    return new ClientSecretCredential(config.tenantId,config.clientId,config.secret)
+    return new DefaultAzureCredential();
 }
 
 
