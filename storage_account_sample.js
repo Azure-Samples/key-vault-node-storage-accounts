@@ -5,44 +5,37 @@
  */
 'use strict';
 
-const util = require('util');
-const msRestAzure = require('ms-rest-azure');
-const KeyVault = require('azure-keyvault');
-const AuthenticationContext = require('adal-node').AuthenticationContext;
-const AzureStorage = require('azure-storage');
-const KeyVaultManagementClient = require('azure-arm-keyvault');
-const StorageManagementClient = require('azure-arm-storage');
-const AuthorizationManagementClient = require('azure-arm-authorization');
-const uuidv4 = require('uuid/v4');
 const SampleUtil = require('./sample_util');
-const random_id = require('./random_id');
+const { StorageManagementClient } = require('@azure/arm-storage');
+const { KeyClient } = require("@azure/keyvault-keys");
+const { BlobServiceClient } = require("@azure/storage-blob");
+const { AuthorizationManagementClient } = require('@azure/arm-authorization');
+const { KeyVaultManagementClient } = require('@azure/arm-keyvault');
+const uuidv4 = require('uuid/v4');
 
-// Creates a storage account and then adds it to the sample key vault to manage its keys.
-async function addStorageAccount(vault) { 
-    /*
-     Only user accounts with access to a storage account's keys can add a storage account to a vault.
-     Thus, the sample creates the storage account with a user account authenticated through device login, rather than service principal credentials as in other samples.
-    */
-    
-    // Create a storage management client w/ user credentials
-    const userCreds = await SampleUtil.getUserCredentials();
+// Create a storage management client credentials
+const credential = SampleUtil.getManagementCredentials();
 
-    const storageMgmtClient = new StorageManagementClient(userCreds, SampleUtil.config.subscriptionId);
-    const authorizationMgmtClient = new AuthorizationManagementClient(userCreds, SampleUtil.config.subscriptionId);
-    
+const storageMgmtClient = new StorageManagementClient(credential, SampleUtil.config.subscriptionId);
+const authorizationMgmtClient = new AuthorizationManagementClient(credential, SampleUtil.config.subscriptionId);
+
+async function addStorageAccount(vault) {
     console.log("Creating storage account: " + SampleUtil.config.storageAccName);
     const createParams = {
         location: SampleUtil.config.azureLocation,
         sku: {
             name: 'Standard_RAGRS'
         },
-        kind: 'Storage',
+        kind: 'StorageV2',
+        identity: {
+            type: "SystemAssigned"
+        },
         tags: {}
+        
     };
     
-    
-    const storageAccount = await storageMgmtClient.storageAccounts.create(SampleUtil.config.groupName, SampleUtil.config.storageAccName, createParams);
-    
+    const storageAccount = await storageMgmtClient.storageAccounts.beginCreateAndWait(SampleUtil.config.groupName, SampleUtil.config.storageAccName, createParams);
+
     // Find the ID for the "Storage Account Key Operator Service Role" role
     const roleList = await authorizationMgmtClient.roleDefinitions.list('/', { 
         'filter': "roleName eq 'Storage Account Key Operator Service Role'"
@@ -63,199 +56,131 @@ async function addStorageAccount(vault) {
     }
         
     // We now can grant the user access to the vault using an AKV management client with service principal credentials.
-    const kvManagementClient = new KeyVaultManagementClient(await SampleUtil.getManagementCredentials(), SampleUtil.config.subscriptionId);
-    const userToken = await SampleUtil.getTokenFromUserCreds(userCreds);
+    const kvManagementClient = new KeyVaultManagementClient(SampleUtil.getManagementCredentials(), SampleUtil.config.subscriptionId);
     
     // An access policy entry allowing the user access to all storage/secret permissions on the vault
     const accessPolicyEntry = {
         tenantId: SampleUtil.config.tenantId,
-        objectId: userToken.oid,
+        objectId: storageAccount.identity.principalId,
         permissions: {
+            keys: ['all'],
             secrets: ['get', 'list', 'set', 'delete', 'backup', 'restore', 'recover', 'purge'],
             storage: ['get', 'list', 'delete', 'set', 'update', 'regeneratekey', 'recover', 'purge', 'backup', 'restore', 'setsas', 'listsas', 'getsas', 'deletesas']
         }
     };
     vault.properties.accessPolicies.push(accessPolicyEntry);
     
-    await kvManagementClient.vaults.createOrUpdate(SampleUtil.config.groupName, vault.name, vault);
+    await kvManagementClient.vaults.beginCreateOrUpdateAndWait(SampleUtil.config.groupName, vault.name, vault);
     
     console.log("Granted user access to vault.");
+    // create a key
+    const keysClient = new KeyClient(vault.properties.vaultUri,credential);
+    await keysClient.createKey("key1",'RSA');
 
-    // Use a KeyVaultClient which authenticates with user credentials to  call set storage account against the vault
-    // We must do this because the storage account methods in the Key Vault API may not be called by a service principal, only by an authenticated user.
-    const akvUserClient = SampleUtil.getKeyVaultUserClient();
-    await akvUserClient.setStorageAccount(vault.properties.vaultUri, storageAccount.name, storageAccount.id, 'key1', true, {
-        regenerationPeriod : 'P30D',
-        storageAccountAttributes: {
-            enabled: true
-        }
-    });
+    // update storage client to use Customer-managed keys
+    await storageMgmtClient.storageAccounts.update(SampleUtil.config.groupName,storageAccount.name,{
+        encryption:{
+            keySource:"Microsoft.Keyvault",
+            keyVaultProperties:{
+                keyName:'key1',
+                keyVaultUri:vault.properties.vaultUri
+            },
+            services: {
+                blob: { enabled: true, keyType: "Account" }
+            }
+        },
+        
+    })
     
     console.log("Added storage account to vault.");
     return storageAccount;
-}
 
+}
 async function updateStorageAccount(storageAccount, vault) {
-    // Create an AKV client using our service principal credentials
-    const kvClient = SampleUtil.getKeyVaultSpClient();
 
-    console.log("Updating storage account active key");
-    
-    // Update the storage account, changing the active key name
-    await kvClient.updateStorageAccount(vault.properties.vaultUri, storageAccount.name, { 
-        activeKeyName: 'key2' 
-    });
-    
-    console.log("Disabling automatic key regeneration");
-    await kvClient.updateStorageAccount(vault.properties.vaultUri, storageAccount.name, {
-        autoRegenerateKey: false
+    // create a new key in keyvault and update storage customer-managed keys 
+    const keysClient = new KeyClient(vault.properties.vaultUri,credential);
+
+    await keysClient.createKey("key2",'RSA');
+    await storageMgmtClient.storageAccounts.update(SampleUtil.config.groupName,storageAccount.name,{
+        encryption:{
+            keySource:"Microsoft.Keyvault",
+            keyVaultProperties:{
+                keyName:'key2',
+                keyVaultUri:vault.properties.vaultUri
+            },
+            services: {
+                blob: { enabled: true, keyType: "Account" }
+            }
+        },
+        
     });
 }
-
-async function regenerateStorageAccountKey(storageAccount, vault) {
-    // As in addStorageAccount, we must use a user authenticated to AKV, rather than a service principal, to call the regenerate storage account key method
+async function regenerateStorageAccountKey(storageAccount) {
     console.log("Regenerating storage account key1");
-    await SampleUtil.getKeyVaultUserClient().regenerateStorageAccountKey(vault.properties.vaultUri, storageAccount.name, 'key1');
-}
-
-async function getStorageAccounts(vault) {
-    // Create an AKV client using our service principal credentials
-    const result = await SampleUtil.getKeyVaultSpClient().getStorageAccounts(vault.properties.vaultUri);
-    
-    console.log("");
-    console.log("Listing storage accounts");
-    // List out the accounts
-    result.forEach( (account) => {
-        console.log("Storage account: '" + account.resourceId + "'");
+    await storageMgmtClient.storageAccounts.regenerateKey(SampleUtil.config.groupName,storageAccount.name,{
+        keyName:'key1'
     });
-    console.log("");
 }
-
-async function createAccountSASDefinition(storageAccount, vault) {
-    const kvClient = SampleUtil.getKeyVaultSpClient();
-    
+async function createAccountSASDefinition(storageAccount) {
     const policy = {
-        AccessPolicy: {
-            Services: 'bfqt', // All services: blob, file, queue, and table
-            ResourceTypes: 'sco', // All resource types (service, template, object)
-            Permissions: 'acdlpruw', // All permissions: add, create, list, process, read, update, write
-            Expiry: '2020-01-01' // Expiry will be ignored and validity period will determine token expiry
-        }
+        keyToSign: "key1",
+        sharedAccessStartTime:new Date("2022-04-11"),
+        sharedAccessExpiryTime: new Date("2022-05-24"),
+        protocols: "https,http",
+        services: 'bfqt', // All services: blob, file, queue, and table
+        resourceTypes: 'sco', // All resource types (service, template, object)
+        permissions: 'acdlpruw', // All permissions: add, create, list, process, read, update, write
     };
     
-    const sasTemplate = AzureStorage.generateAccountSharedAccessSignature(storageAccount.name, '00000000', policy); // Instead of providing the actual key, just use '00000000' as a placeholder
+    // get storage account sasToken
+    const sasToken = await storageMgmtClient.storageAccounts.listAccountSAS(SampleUtil.config.groupName, storageAccount.name, policy);
+    const blobServiceClient = new BlobServiceClient(`https://${storageAccount.name}.blob.core.windows.net?${sasToken.accountSasToken}`);
     
-    // Now, set the SAS definition in AKV
-    const sasDef = await kvClient.setSasDefinition(vault.properties.vaultUri, storageAccount.name, 'acctall', sasTemplate, 'account', 'PT2H' /* 2 hour validity period */, {
-        sasDefinitionAttributes: { enabled: true }
-    });
+    console.log("Created sample container using account SAS definition.");
+    const containerClient = blobServiceClient.getContainerClient('sample-container');
+    await containerClient.create();
     
-    
-    // When the SAS definition is created, a corresponding managed secret is also created in the vault. 
-    // This secret is used to provision SAS tokens according to the definition. As shown below, we can retrieve a token via the getSecret method.
-    const secretId = KeyVault.parseSecretIdentifier(sasDef.secretId);
-    const accountSasToken = await kvClient.getSecret(secretId.vault, secretId.name, ''); // managed SAS secrets have no version
-    const blobService = AzureStorage.createBlobServiceWithSas(storageAccount.name + "." + AzureStorage.Constants.StorageServiceClientConstants.CLOUD_BLOB_HOST, accountSasToken.value);
-    
-    return new Promise( (resolve, reject) => {
-        blobService.createContainerIfNotExists('sample-container', (err) => {
-            if(err) {
-                reject(err);
-                return;
-            }
-            blobService.createBlockBlobFromText('sample-container', 'blob1', 'test data', (err) => {
-                if(err) {
-                    reject(err);
-                    return;
-                }
-                
-                console.log("Created sample blob using account SAS definition.");
-                resolve();
-            });
-        });
-    });
-}
+    console.log("Created sample blob using account SAS definition.");
+    const content = "test data";
+    const blobName = "blob1";
+    const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+    await blockBlobClient.upload(content, content.length);
+    console.log(`Upload block blob ${blobName} successfully`);
 
-async function createBlobSASDefinition(storageAccount, vault) {
-    const kvClient = SampleUtil.getKeyVaultSpClient();
-    const tmpBlobService = AzureStorage.createBlobService(storageAccount.name, '00000000'); // Instead of providing the actual key, just use '00000000' as a placeholder
-    
-    const token = tmpBlobService.generateSharedAccessSignature('sample-container', null, {
-        AccessPolicy: {
-            Permissions: 'racwdl', // all permissions on container
-        }
-    });
-    
-    const sasTemplate = tmpBlobService.getUrl('sample-container', null, token);
-    // Now, set the SAS definition in AKV
-    const sasDef = await kvClient.setSasDefinition(vault.properties.vaultUri, storageAccount.name, 'blobcontall', sasTemplate, 'service', 'PT2H' /* 2 hour validity period */, {
-        sasDefinitionAttributes: { enabled: true }
-    });
-    
-    const secretId = KeyVault.parseSecretIdentifier(sasDef.secretId);
-    const containerToken = await kvClient.getSecret(secretId.vault, secretId.name, ''); // managed SAS secrets have no version
-    const blobService = AzureStorage.createBlobServiceWithSas(storageAccount.name + "." + AzureStorage.Constants.StorageServiceClientConstants.CLOUD_BLOB_HOST, containerToken.value);
-    
-    return new Promise( (resolve, reject) => {
-        blobService.createBlockBlobFromText('sample-container', 'blob1', 'test data', (err) => {
-            if(err) {
-                reject(err);
-                return;
-            }
-            
-            console.log("Created sample blob using container SAS definition.");
-            resolve();
-        });
-    });
 }
+async function deleteStorageAccount(storageAccount) {
 
-async function getSASDefinitions(storageAccount, vault) {
-    const result = await SampleUtil.getKeyVaultSpClient().getSasDefinitions(vault.properties.vaultUri, storageAccount.name);
-    
-    console.log("");
-    console.log("Listing SAS definitions");
-    result.forEach( (def) => {
-        console.log("SAS def id: " + def.id);
-    });
-    console.log();
-}
-
-async function deleteStorageAccount(vault, storageAccount) {
-    await SampleUtil.getKeyVaultSpClient().deleteStorageAccount(vault.properties.vaultUri, storageAccount.name);
+    await storageMgmtClient.storageAccounts.update(SampleUtil.config.groupName,storageAccount.name,{
+        encryption:{
+            keySource:"Microsoft.Storage",
+        },
+        
+    })
     console.log("The storage account has been removed from the vault");
 }
-
-
 async function main() {
     console.log('Azure Key Vault - Managed Storage Account Key Sample');
     
     // Get our sample vault
     const vault = await SampleUtil.getSampleVault();
-    
+
     // Create and add a storage account to our sample vault
     const storageAccount = await addStorageAccount(vault);
-    
+
     // Demonstrate updating properties of the managed storage account
     await updateStorageAccount(storageAccount, vault);
-    
+
     // Demonstrate regeneration of a storage account key
-    await regenerateStorageAccountKey(storageAccount, vault);
-    
-    // Demonstrate listing off the storage accounts in the vault
-    await getStorageAccounts(vault);
-    
+    await regenerateStorageAccountKey(storageAccount);
+
     // Demonstrate the creation of an account-level SAS definition 
-    await createAccountSASDefinition(storageAccount, vault);
-    
-    // Demonstrate the creation of a container-level SAS definition
-    await createBlobSASDefinition(storageAccount, vault);
-    
-    // List all SAS definitions in the account
-    await getSASDefinitions(storageAccount, vault);
+    await createAccountSASDefinition(storageAccount);
     
     // Finally, remove the storage account from the vault
-    await deleteStorageAccount(vault, storageAccount);
+    await deleteStorageAccount(storageAccount);
+    
+    
 }
 
 main().then( () => { console.log("Sample execution complete."); } );
-
